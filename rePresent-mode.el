@@ -45,14 +45,7 @@
 (defvar rePresent-mode-hook nil
   "Hook called by \"rePresent-mode\"")
 
-;; Utility functions
-(defun rePresent/centre-line ()
-  (interactive)
-    (let
-	((fill-column (frame-width)))
-      (progn
-	(center-line))))
-	;; (replace-string "	" " " nil (point-at-bol) (point-at-eol)))))
+;; Navigation functions
 
 (defun rePresent/activate-current-bullet ()
   "Activates the current bullet if it's a bullet line"
@@ -89,14 +82,13 @@
       (progn
 	(rePresent/jump-to-first-bullet)
 	(forward-line -1)))
-  ; Go to the next line and activate it
-  (forward-line 1)
-  (rePresent/activate-current-bullet)
-  ; If we've gone beyond the last one, return to the last one
-  (if (not (save-excursion
-	     (beginning-of-line)
-	     (looking-at "\\+\\|-")))
-      (forward-line -1)))
+  ; Go to the next line and activate it if it's a valid bullet
+  (if (save-excursion
+	(forward-line 1)
+	(looking-at "\\+\\|-"))
+      (progn
+	(forward-line 1)
+	(rePresent/activate-current-bullet))))
 
 (defun rePresent/previous-bullet ()
   "Jumps to the previous bullet."
@@ -104,7 +96,43 @@
   (represent/deactivate-current-bullet)
   (forward-line -1))
 
+;; Functions to load a slide deck and create the slides
+(defun rePresent/centre-line ()
+  (interactive)
+    (let
+	((fill-column (frame-width)))
+      (progn
+	(center-line))))
+	;; (replace-string "	" " " nil (point-at-bol) (point-at-eol)))))
 
+
+(defun rePresent/create-bullet-slide (contents)
+  (let
+      ((spec contents))
+    (while spec
+      (cond ((eq (car spec) :title)
+	     (progn
+	       (set-buffer (get-buffer-create (cadr spec)))
+	       (rePresent-mode)
+	       (goto-char (point-min))
+	       (insert (concat "* " (cadr spec) "\n\n"))))
+	    ((eq (car spec) :bullets)
+	     (progn 
+	       (dolist (bullet (cadr spec))
+		 (insert (concat "+ " bullet "\n"))))
+	     (goto-char (point-min))))
+      (setq spec (cddr spec)))))
+
+(defun rePresent/load-file (fname)
+  "Load a presentation file and convert it into a series of slide buffers"
+  (interactive "frePresent presentation to load : ")
+  (makunbound 'presentation)
+  (load-file fname)
+  (if (not (boundp 'presentation))
+      (error "Invalid presentation file"))
+  (dolist (sl presentation)
+    (if (eq (car sl) 'slide)
+	(rePresent/create-bullet-slide (cdr sl)))))
 
 ;; Entry points and public interfaces.
 (defun rePresent-mode ()
@@ -118,7 +146,7 @@
     (run-hooks rePresent-mode-hook)
     )
 
-(provide 'rePresent-mode)  
+(provide 'rePresent-mode)
   
   
   
