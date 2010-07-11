@@ -1,0 +1,4 @@
+A simple Emacs major mode that can be used to make presentations. 
+
+The idea is to have different "kinds of slides" (like source code
+listings, regular bullet points etc.).
