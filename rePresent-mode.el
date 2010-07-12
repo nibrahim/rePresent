@@ -115,6 +115,7 @@
 	       (set-buffer (get-buffer-create (cadr spec)))
 	       (rePresent-mode)
 	       (goto-char (point-min))
+	       (message (concat "rePresent : Creating slide " (cadr spec)))
 	       (insert (concat "* " (cadr spec) "\n\n"))))
 	    ((eq (car spec) :bullets)
 	     (progn 
