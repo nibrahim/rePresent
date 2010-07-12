@@ -2,10 +2,10 @@
 (defvar rePresent-mode-map
   (let 
       ((rePresent-mode-map (make-keymap)))
-    (define-key rePresent-mode-map (kbd "<next>") 'rePresent/next-bullet)
-    (define-key rePresent-mode-map (kbd "<prior>") 'rePresent/previous-bullet)
-    (define-key rePresent-mode-map (kbd "SPC") 'rePresent/next-slide)
-    (define-key rePresent-mode-map (kbd "<backspace>") 'rePresent/previous-slide)
+    (define-key rePresent-mode-map (kbd "<SPC>") 'rePresent/next-bullet)
+    (define-key rePresent-mode-map (kbd "<backspace>") 'rePresent/previous-bullet)
+    (define-key rePresent-mode-map (kbd "<next>") 'rePresent/next-slide)
+    (define-key rePresent-mode-map (kbd "<prior>") 'rePresent/previous-slide)
     (define-key rePresent-mode-map (kbd "q") 'rePresent/quite-presentation)
     rePresent-mode-map)
   "Keymap for rePresent major mode")
@@ -59,7 +59,7 @@
       (delete-char 1)
       (insert-char ?- 1))))
 
-(defun represent/deactivate-current-bullet ()
+(defun rePresent/deactivate-current-bullet ()
   "Activates the current bullet if it's a bullet line"
   (save-excursion
     (beginning-of-line)
@@ -88,16 +88,18 @@
   (if (save-excursion
 	(forward-line 1)
 	(looking-at "\\+\\|-"))
-      (forward-line 1)))
+      (forward-line 1)
+    (rePresent/next-slide)))
 
 (defun rePresent/previous-bullet ()
   "Jumps to the previous bullet."
   (interactive)
-  (represent/deactivate-current-bullet)
+  (rePresent/deactivate-current-bullet)
   (if (save-excursion
 	(forward-line -1)
 	(looking-at "\\+\\|-"))
-      (forward-line -1)))
+      (forward-line -1)
+    (rePresent/previous-slide)))
 
 
 (defun rePresent/next-slide ()
@@ -109,7 +111,8 @@
   (if (not (eq current-slide (- (length rePresent/slide-deck) 1)))
       (progn
 	(setq current-slide (+ current-slide 1))
-	(switch-to-buffer (nth current-slide rePresent/slide-deck)))))
+	(switch-to-buffer (nth current-slide rePresent/slide-deck))
+	(rePresent/reset-slide (current-buffer)))))
 
 (defun rePresent/previous-slide ()
   "Goes to previous slide"
@@ -120,7 +123,18 @@
   (if (not (eq current-slide 0))
       (progn
 	(setq current-slide (- current-slide 1))
-	(switch-to-buffer (nth current-slide rePresent/slide-deck)))))
+	(switch-to-buffer (nth current-slide rePresent/slide-deck))
+	(rePresent/reset-slide (current-buffer)))))
+
+(defun rePresent/reset-slide (slide)
+  "Turns off all bullets in the given slide"
+  (save-excursion
+    (set-buffer slide)
+    (goto-char (point-min))
+    (replace-regexp "\\+\\|-" "+"))
+  (rePresent/jump-to-first-bullet))
+
+
 
 ;; Functions to load a slide deck and create the slides
 (defun rePresent/centre-line ()
@@ -182,7 +196,6 @@
     (kill-buffer (pop rePresent/slide-deck)))
   (makunbound 'rePresent/slide-deck)
   (makunbound 'current-slide))
-
 
 
 ;; Entry points and public interfaces.
