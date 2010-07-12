@@ -4,6 +4,9 @@
       ((rePresent-mode-map (make-keymap)))
     (define-key rePresent-mode-map (kbd "<next>") 'rePresent/next-bullet)
     (define-key rePresent-mode-map (kbd "<prior>") 'rePresent/previous-bullet)
+    (define-key rePresent-mode-map (kbd "SPC") 'rePresent/next-slide)
+    (define-key rePresent-mode-map (kbd "<backspace>") 'rePresent/previous-slide)
+    (define-key rePresent-mode-map (kbd "q") 'rePresent/quite-presentation)
     rePresent-mode-map)
   "Keymap for rePresent major mode")
 
@@ -79,22 +82,45 @@
   (if (not (save-excursion
 	     (beginning-of-line)
 	     (looking-at "\\+\\|-")))
-      (progn
-	(rePresent/jump-to-first-bullet)
-	(forward-line -1)))
+	(rePresent/jump-to-first-bullet))
   ; Go to the next line and activate it if it's a valid bullet
+  (rePresent/activate-current-bullet)  
   (if (save-excursion
 	(forward-line 1)
 	(looking-at "\\+\\|-"))
-      (progn
-	(forward-line 1)
-	(rePresent/activate-current-bullet))))
+      (forward-line 1)))
 
 (defun rePresent/previous-bullet ()
   "Jumps to the previous bullet."
   (interactive)
   (represent/deactivate-current-bullet)
-  (forward-line -1))
+  (if (save-excursion
+	(forward-line -1)
+	(looking-at "\\+\\|-"))
+      (forward-line -1)))
+
+
+(defun rePresent/next-slide ()
+  "Goes to the next slide"
+  (interactive)
+  (if (not (and (boundp 'current-slide)
+		(boundp 'rePresent/slide-deck)))
+      (error "Can't change slides before initialising deck"))
+  (if (not (eq current-slide (- (length rePresent/slide-deck) 1)))
+      (progn
+	(setq current-slide (+ current-slide 1))
+	(switch-to-buffer (nth current-slide rePresent/slide-deck)))))
+
+(defun rePresent/previous-slide ()
+  "Goes to previous slide"
+  (interactive)
+  (if (not (and (boundp 'current-slide)
+		(boundp 'rePresent/slide-deck)))
+      (error "Can't change slides before initialising deck"))
+  (if (not (eq current-slide 0))
+      (progn
+	(setq current-slide (- current-slide 1))
+	(switch-to-buffer (nth current-slide rePresent/slide-deck)))))
 
 ;; Functions to load a slide deck and create the slides
 (defun rePresent/centre-line ()
@@ -108,11 +134,12 @@
 
 (defun rePresent/create-bullet-slide (contents)
   (let
-      ((spec contents))
+      ((spec contents)
+       (slide nil))
     (while spec
       (cond ((eq (car spec) :title)
 	     (progn
-	       (set-buffer (get-buffer-create (cadr spec)))
+	       (setq slide (set-buffer (get-buffer-create (cadr spec))))
 	       (rePresent-mode)
 	       (goto-char (point-min))
 	       (message (concat "rePresent : Creating slide " (cadr spec)))
@@ -122,18 +149,41 @@
 	       (dolist (bullet (cadr spec))
 		 (insert (concat "+ " bullet "\n"))))
 	     (goto-char (point-min))))
-      (setq spec (cddr spec)))))
+      (setq spec (cddr spec)))
+    slide
+    ))
 
 (defun rePresent/load-file (fname)
   "Load a presentation file and convert it into a series of slide buffers"
-  (interactive "frePresent presentation to load : ")
   (makunbound 'presentation)
   (load-file fname)
   (if (not (boundp 'presentation))
       (error "Invalid presentation file"))
-  (dolist (sl presentation)
-    (if (eq (car sl) 'slide)
-	(rePresent/create-bullet-slide (cdr sl)))))
+  (let
+      ((slides '()))
+    (dolist (sl presentation (reverse slides))
+      (if (eq (car sl) 'slide)
+	  (setq slides (append 
+			(list (rePresent/create-bullet-slide (cdr sl)))
+			slides))))))
+
+(defun rePresent/start-presentation (fname)
+  "Load up the presentation file, create the slides, make
+   necessary face/colour changes and start the presentation"
+  (interactive "frePresent presentation to load : ")
+  (setq rePresent/slide-deck (rePresent/load-file fname))
+  (setq current-slide 0)
+  (switch-to-buffer (nth current-slide rePresent/slide-deck))
+  )
+
+(defun rePresent/quite-presentation ()
+  (interactive)
+  (while rePresent/slide-deck
+    (kill-buffer (pop rePresent/slide-deck)))
+  (makunbound 'rePresent/slide-deck)
+  (makunbound 'current-slide))
+
+
 
 ;; Entry points and public interfaces.
 (defun rePresent-mode ()
@@ -148,7 +198,7 @@
     )
 
 (provide 'rePresent-mode)
-  
+
   
   
   
